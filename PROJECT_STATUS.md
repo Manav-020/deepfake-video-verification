@@ -1,7 +1,7 @@
 # Project status
 
-Last updated: 2026-10-18. Local implementation complete and exercised; labeled evaluation and GitHub
-publication remain dependent on user access/authentication.
+Last updated: 2026-10-18. Local implementation complete and exercised; private GitHub publication
+completed and verified. Labeled evaluation remains dependent on user dataset access.
 
 ## Implemented
 
@@ -67,8 +67,8 @@ unused; this avoidable tooling side effect was disclosed. Subsequent download in
   blur/pose estimation. Undetected faces and unsampled edits can be missed. CPU only tested.
 - Local sessions have no account recovery; revocation cannot recall downloads; retention/disk quotas
   are manual. No public deployment. GPU, fine-tuning and production hosting remain future work.
-- **GitHub authentication absent.** Official portable CLI 2.102.0 exists in ignored `tools/gh/gh.exe`;
-  auth status reports no authenticated hosts. User login/account selection cannot be completed autonomously.
+- GitHub authentication and private repository publication are complete. Official portable CLI 2.102.0
+  remains in ignored `tools/gh/gh.exe`; credentials are managed outside the tracked source.
 
 ## Readiness, repository and next actions
 
@@ -76,13 +76,27 @@ Model: **ready, verified and used for actual inference**; no model user action r
 Dataset: **not attached**. Empty validation/test real/fake folders exist. Exact file/manifest/access
 instructions are in MODEL_AND_DATA.md, datasets/README.md and USER_ACTIONS_REQUIRED.md.
 
-GitHub repository URL: **none — not created**.
-Push status: **not pushed; blocked by GitHub authentication**.
-Local source is committed on main; no remote was overwritten and no force-push attempted.
-After login, create a NEW PRIVATE repository and verify remote main matches local HEAD; exact commands
-are in USER_ACTIONS_REQUIRED.md. Then update this document with the verified URL/push status.
+GitHub repository URL: **https://github.com/Manav-020/deepfake-video-verification**.
+Visibility: **PRIVATE**, verified through GitHub CLI (`isPrivate: true`, `visibility: PRIVATE`).
+Push status: **successfully pushed to origin/main**; remote commit equality checked after the source
+push and again after the publication documentation push. The initial source commit was
+`888df1abd31732d0065c6710c5e5632bd485fc09`; this status update is committed and pushed afterward.
+The new origin is `https://github.com/Manav-020/deepfake-video-verification.git`.
+Existing history and Git identity were preserved; no remote was overwritten and no force-push used.
+
+Before publication, all 45 tracked source files (161,861 bytes) were reviewed for excluded/generated
+material, oversized files and recognizable credential/private-key patterns; no issues were found.
+Ignore checks confirmed private runtime keys, videos, datasets, checkpoints, tools, artifacts, `.env`
+and the virtual environment remain excluded. Only documentation files changed for the publication update.
+The working tree was checked clean after committing and pushing. Recheck remote equality with:
+
+```powershell
+git rev-parse HEAD
+git ls-remote origin refs/heads/main
+.\tools\gh\gh.exe repo view --json url,isPrivate,visibility
+```
 
 Launch from this directory:
 `.\.venv\Scripts\python.exe -m uvicorn app.asgi:app --host 127.0.0.1 --port 8000 --workers 1`.
 Open http://127.0.0.1:8000/; use an already-running project server if port 8000 is occupied.
-Next user actions: GitHub authentication/publication and legal labeled data acquisition/evaluation.
+Next user action: legal labeled data acquisition/evaluation. No GitHub publication action remains.

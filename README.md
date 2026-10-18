@@ -155,8 +155,9 @@ exchange public keys via an authenticated channel; see [SECURITY_DESIGN.md](SECU
 - Key/ACL error: run under the account that created the project; restore the original key/registry rather
   than generating a replacement. The application intentionally stops if its key is absent from trust.
 - Tests currently emit one upstream Starlette/AnyIO deprecation warning; assertions pass.
-- GitHub is blocked only by missing authentication. A portable official `gh.exe` was downloaded into
-  ignored `tools/gh`. See [USER_ACTIONS_REQUIRED.md](USER_ACTIONS_REQUIRED.md) for exact commands.
+- Source is published privately at https://github.com/Manav-020/deepfake-video-verification.
+  Privacy and remote/local commit equality were verified. The portable official `gh.exe` remains in
+  ignored `tools/gh`. See [USER_ACTIONS_REQUIRED.md](USER_ACTIONS_REQUIRED.md) for remaining dataset work.
 
 See [PROJECT_STATUS.md](PROJECT_STATUS.md), [SECURITY_DESIGN.md](SECURITY_DESIGN.md),
 [MODEL_AND_DATA.md](MODEL_AND_DATA.md), and [DEMO_GUIDE.md](DEMO_GUIDE.md).

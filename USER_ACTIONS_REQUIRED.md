@@ -3,37 +3,30 @@
 Last updated: 2026-10-18.
 
 The local application and real detector are installed and work. No cloud account, paid API, training,
-or model-access approval is required to run it. The following work needs your identity/data access.
+or model-access approval is required to run it. GitHub publication is complete; labeled evaluation
+still needs your authorized dataset access.
 
-## 1. Authenticate GitHub and publish the private repository
+## 1. GitHub publication completed — no action required
 
-**Why:** GitHub CLI is available locally, but `gh auth status` reports no authenticated GitHub hosts.
-I cannot choose/sign into your account. Git identity was already configured and was preserved.
-No GitHub repository was created; no remote exists; no push has succeeded.
+Repository: https://github.com/Manav-020/deepfake-video-verification.
+Created as a new **private** repository under your authenticated account. Source and publication
+documentation were committed and pushed to `origin/main`; GitHub privacy and remote/local commit
+equality were verified. Existing Git identity/history and all sensitive/generated-file exclusions
+were preserved. No remote was overwritten and no force-push was used.
 
-**Exact commands** (from this project):
+**Optional verification commands** (from this project):
 
 ```powershell
 Set-Location -LiteralPath 'D:\coding\python\ISC Project'
-.\tools\gh\gh.exe auth login --hostname github.com --git-protocol https --web
-.\tools\gh\gh.exe auth status
-.\tools\gh\gh.exe repo create deepfake-video-verification --private --source . --remote origin --push
-.\tools\gh\gh.exe repo view --json url,isPrivate
+.\tools\gh\gh.exe repo view --json url,isPrivate,visibility
 git remote -v
 git ls-remote origin refs/heads/main
 git rev-parse HEAD
 ```
 
-**Expected destination:** a new private repository in the account you authenticate, with source under
-`main`; `origin` is added only if absent. The descriptive name has not been reserved. If already taken,
-choose an available new name such as `deepfake-video-verification-isc` in the `repo create` command.
-Do not overwrite an existing remote or force-push. If a remote now exists, inspect it before proceeding.
-
-**Verify completion:** `isPrivate` must be true; record the returned URL. Remote main’s hash must match
-`git rev-parse HEAD`. Update PROJECT_STATUS.md with the verified URL/push status, commit that documentation
-and `git push`. All local keys, videos, model weights, datasets, tools and virtual environment are ignored.
-Do not paste credentials into this project or conversation. You can authenticate, then ask the agent to
-finish creation/push and update the status if you prefer.
+Expected: `isPrivate` is true, visibility is PRIVATE, and remote main's hash matches local HEAD.
+All local keys, videos, model weights, datasets, tools and the virtual environment remain ignored.
+Never paste credentials into tracked project files.
 
 ## 2. Obtain labeled videos for measured evaluation and a deepfake demonstration
 
