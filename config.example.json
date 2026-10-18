@@ -1,0 +1,15 @@
+{
+  "max_upload_mb": 100,
+  "max_duration_seconds": 120,
+  "sample_frames": 12,
+  "max_faces_per_frame": 8,
+  "min_face_pixels": 64,
+  "min_face_confidence": 0.9,
+  "min_analyzed_frames": 4,
+  "min_coverage": 0.75,
+  "low_threshold": 0.2,
+  "suspicious_threshold": 0.8,
+  "analysis_timeout_seconds": 180,
+  "max_pixels": 2073600,
+  "torch_threads": 4
+}
