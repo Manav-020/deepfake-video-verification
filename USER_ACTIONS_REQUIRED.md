@@ -6,29 +6,8 @@ The local application and real detector are installed and work. No cloud account
 or model-access approval is required to run it. GitHub publication is complete; labeled evaluation
 still needs your authorized dataset access.
 
-## 1. GitHub publication completed — no action required
 
-Repository: https://github.com/Manav-020/deepfake-video-verification.
-Created as a new **private** repository under your authenticated account. Source and publication
-documentation were committed and pushed to `origin/main`; GitHub privacy and remote/local commit
-equality were verified. Existing Git identity/history and all sensitive/generated-file exclusions
-were preserved. No remote was overwritten and no force-push was used.
-
-**Optional verification commands** (from this project):
-
-```powershell
-Set-Location -LiteralPath 'D:\coding\python\ISC Project'
-.\tools\gh\gh.exe repo view --json url,isPrivate,visibility
-git remote -v
-git ls-remote origin refs/heads/main
-git rev-parse HEAD
-```
-
-Expected: `isPrivate` is true, visibility is PRIVATE, and remote main's hash matches local HEAD.
-All local keys, videos, model weights, datasets, tools and the virtual environment remain ignored.
-Never paste credentials into tracked project files.
-
-## 2. Obtain labeled videos for measured evaluation and a deepfake demonstration
+##  Obtain labeled videos for measured evaluation and a deepfake demonstration
 
 **Why:** no real/fake dataset is attached. Integration smoke fixtures cannot establish detection quality,
 choose validated thresholds, or demonstrate correct classification of actual deepfakes.
