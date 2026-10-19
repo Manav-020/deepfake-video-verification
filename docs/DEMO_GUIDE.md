@@ -1,6 +1,6 @@
 # Five-minute demonstration
 
-Start the application with the command in README.md and open http://127.0.0.1:8000/.
+Start the application with the command in the [README](../README.md) and open http://127.0.0.1:8000/.
 Explain first: facial-manipulation screening is experimental; cryptography authenticates the service’s
 report and exact file, not the real-world truth of its content.
 
@@ -19,7 +19,7 @@ Explain why these are three separate findings. Revoke links and show that all sh
 ## Facial deepfake screening
 
 Use an authorized manipulated face video from your requested dataset, with its corresponding original
-where available. Follow MODEL_AND_DATA.md for access and labeling. Upload both and inspect their scores,
+where available. Follow [the evaluation guide](EVALUATION.md) for access and labeling. Upload both and inspect their scores,
 coverage and assessment without preannouncing what result the model must return. A known deepfake can
 be missed; inconclusive or even low risk is a limitation to report, not a reason to edit the output.
 Suspicious and inconclusive reports must have no enabled share link. No labeled deepfake demo clip is

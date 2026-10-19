@@ -27,8 +27,11 @@ def load_manifest(path):
         seen_paths.add(video)
         if not video.is_file():
             raise ValueError(f'Missing dataset video: {row["path"]}')
+        hasher = hashlib.sha256()
         with video.open('rb') as stream:
-            sha = hashlib.file_digest(stream, 'sha256').hexdigest()
+            for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                hasher.update(chunk)
+        sha = hasher.hexdigest()
         for value, seen in ((row['group'], seen_groups), (sha, seen_hashes)):
             if value in seen and seen[value] != row['split']:
                 raise ValueError('Leakage: related group or identical video occurs across splits')

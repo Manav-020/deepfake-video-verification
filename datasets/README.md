@@ -35,4 +35,4 @@ Both training datasets of a chosen detector and related source videos must be co
 neither DFDC training data nor portraits repeated for smoke tests establish independent generalization.
 
 Run validation first, choose thresholds using validation only, then freeze config.json and evaluate
-the untouched test partition. See MODEL_AND_DATA.md for commands and limitations.
+the untouched test partition. See [the evaluation guide](../docs/EVALUATION.md) for the protocol and limitations.
