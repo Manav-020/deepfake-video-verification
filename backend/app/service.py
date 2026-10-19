@@ -54,6 +54,7 @@ class Service:
         original = path.read_bytes()
         video_hash = digest(original)
         result = self.detector(path, self.settings)
+        previews = result.get('previews', [])
         if digest(path.read_bytes()) != video_hash:
             raise ValueError('File changed during analysis; report refused')
         assessment = result['assessment']
@@ -70,7 +71,7 @@ class Service:
                    and coverage.get('rejected_faces', 0) == 0)
         report = {'report_id': identifier, 'schema_version': 1,
                   'video': {'sha256': video_hash, 'byte_length': len(original)},
-                  'analysis': {k: v for k, v in result.items() if k != 'coverage'},
+                  'analysis': {k: v for k, v in result.items() if k not in ('coverage', 'previews')},
                   'model': metadata(), 'coverage': result.get('coverage', {}),
                   'thresholds': {**self.settings.dict(), 'validation': 'provisional / unvalidated'},
                   'aggregation': 'Maximum model score across ALL quality-eligible detected faces and sampled frames; any rejected face blocks low risk; no identity tracking',
@@ -85,7 +86,7 @@ class Service:
             raise ValueError('Report signing failed')
         with self.db() as con:
             con.execute('INSERT INTO reports VALUES (?,?,?)', (identifier, owner, json.dumps(envelope)))
-        return {'report': report, 'envelope': envelope}
+        return {'report': report, 'envelope': envelope, 'previews': previews}
 
     def record(self, identifier, owner=None):
         with self.db() as con:

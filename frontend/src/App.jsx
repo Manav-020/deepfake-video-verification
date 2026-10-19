@@ -14,6 +14,29 @@ function assessmentTone(assessment) {
   return 'neutral';
 }
 
+function FrameGallery({ previews }) {
+  const validPreviews = Array.isArray(previews) ? previews.filter((frame) => frame?.image) : [];
+  if (validPreviews.length === 0) return null;
+  return (
+    <section className="card frame-gallery">
+      <div className="section-title"><div><p className="eyebrow">SAMPLED VIDEO FRAMES</p><h2>What the detector analyzed</h2></div></div>
+      <p className="muted">Green boxes are scored faces; amber boxes were detected but excluded from scoring. Face scores are model outputs, not probabilities.</p>
+      <div className="frame-grid">{validPreviews.map((frame, index) => {
+        const timestamp = Number(frame.timestamp_seconds ?? frame.timestamp ?? 0);
+        const frameNumber = Number.isInteger(frame.frame) ? frame.frame : index;
+        const faces = Array.isArray(frame.faces) ? frame.faces : [];
+        return (
+          <article className="frame-item" key={frameNumber}>
+            <img src={frame.image} alt={`Sampled frame ${frameNumber + 1} at ${timestamp.toFixed(2)} seconds with face detections marked`} />
+            <div><strong>Frame {frameNumber + 1}</strong><span>{timestamp.toFixed(2)} s · {faces.length ? `${faces.length} detected face${faces.length === 1 ? '' : 's'}` : 'No faces detected'}</span></div>
+            {faces.length > 0 && <ul>{faces.map((face, faceIndex) => <li key={faceIndex}>{face.model_score != null ? `Face ${faceIndex + 1}: score ${Number(face.model_score).toFixed(4)}` : `Face ${faceIndex + 1}: excluded — ${face.rejected || 'not scored'}`}</li>)}</ul>}
+          </article>
+        );
+      })}</div>
+    </section>
+  );
+}
+
 function saveJson(name, value) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a');
@@ -57,7 +80,7 @@ function SharedVideo({ token }) {
   );
 }
 
-function Assessment({ result, onShare, onRevoke, onDownload }) {
+function Assessment({ result, onShare, onRevoke, onDownload, onExplain, explanation, explaining, explanationAvailable }) {
   const report = result.report;
   const analysis = report.analysis || {};
   const coverage = report.coverage || {};
@@ -77,7 +100,10 @@ function Assessment({ result, onShare, onRevoke, onDownload }) {
         <button className="button secondary" onClick={() => onDownload(report.report_id)}>Download signed report</button>
         {report.sharing_policy?.allowed && <button className="button primary" onClick={() => onShare(report.report_id)}>Create share link</button>}
         <button className="button quiet" onClick={() => onRevoke(report.report_id)}>Revoke shares</button>
+        <button className="button secondary" onClick={() => onExplain(report.report_id)} disabled={!explanationAvailable || explaining}>{explaining ? 'Writing explanation…' : 'Explain this result'}</button>
       </div>
+      {!explanationAvailable && <p className="muted">Add your AI provider API key to the repository root .env file, then restart the backend to enable explanations.</p>}
+      {explanation && <div className="explanation"><strong>AI-generated explanation</strong><p>{explanation}</p><small>Narrative summary of the reported metrics; not a model feature attribution or a separate authenticity check.</small></div>}
       {result.shareUrl && <p className="notice success">Share link: <a href={result.shareUrl}>{result.shareUrl}</a></p>}
       <p className="footnote">A signed report and matching hash establish report integrity and file association. They do not prove the video depicts a genuine event.</p>
     </section>
@@ -90,12 +116,15 @@ export default function App() {
   const [status, setStatus] = useState(null);
   const [reports, setReports] = useState([]);
   const [result, setResult] = useState(null);
+  const [framePreviews, setFramePreviews] = useState([]);
   const [shareLinks, setShareLinks] = useState({});
   const [selectedVideo, setSelectedVideo] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [verification, setVerification] = useState('');
+  const [explanation, setExplanation] = useState('');
+  const [explaining, setExplaining] = useState(false);
 
   useEffect(() => {
     if (sharedMatch) return;
@@ -123,7 +152,7 @@ export default function App() {
     try {
       const body = new FormData(); body.append('video', video);
       const data = await request('/api/analyze', { method: 'POST', headers: { 'x-csrf-token': csrf }, body });
-      setResult(data); setVerification(''); await refreshReports();
+      setResult(data); setFramePreviews(data.previews || []); setVerification(''); setExplanation(''); await refreshReports();
       setSelectedVideo('');
       form.reset();
     } catch (e) { setError(e.message); }
@@ -170,6 +199,15 @@ export default function App() {
     } catch (e) { setError(e.message); }
   }
 
+  async function explain(id) {
+    setError(''); setExplanation(''); setExplaining(true);
+    try {
+      const data = await request(`/api/reports/${id}/explanation`, { method: 'POST', headers: { 'x-csrf-token': csrf } });
+      setExplanation(data.explanation);
+    } catch (e) { setError(e.message); }
+    finally { setExplaining(false); }
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar"><a className="brand" href="/">FrameSeal</a><span className="tagline">PRIVATE VIDEO SCREENING &amp; FILE VERIFICATION</span><span className={`status-dot ${status?.model_ready ? 'ready' : ''}`}>{status?.model_ready ? 'Model ready' : 'Model unavailable'}</span></header>
@@ -185,7 +223,8 @@ export default function App() {
           <form onSubmit={analyze}><label className="file-drop"><span className="file-icon">↑</span><strong>{selectedVideo || 'Select a video'}</strong><small>{selectedVideo ? 'Video selected. Click “Analyze video” below to begin.' : 'Choose a file, then click Analyze video below.'}</small><input name="video" type="file" accept="video/*,.mp4,.mov,.avi" required onChange={(event) => { setSelectedVideo(event.target.files[0]?.name || ''); setError(''); }} /></label><button className="button primary full" disabled={busy || !csrf}>{busy ? 'Analyzing video…' : !csrf ? 'Connecting to backend…' : 'Analyze video'}</button></form>
         </section>
 
-        {result && <Assessment result={result} onShare={share} onRevoke={revoke} onDownload={downloadReport} />}
+        {result && <Assessment result={result} onShare={share} onRevoke={revoke} onDownload={downloadReport} onExplain={explain} explanation={explanation} explaining={explaining} explanationAvailable={status?.explanation_available} />}
+        {result && <FrameGallery previews={framePreviews} />}
 
         <section className="card"><div className="section-title"><div><p className="eyebrow">02 / VERIFY</p><h2>Check a received file</h2></div></div><p className="muted">Upload the video and its signed JSON report. Signature validity and exact-file hash matching are reported independently.</p>
           <form className="verify-form" onSubmit={verify}><label>Video<input name="video" type="file" accept="video/*,.mp4,.mov,.avi" required /></label><label>Signed report<input name="report" type="file" accept="application/json,.json" required /></label><button className="button secondary" disabled={busy || !csrf}>Verify report</button></form>

@@ -13,6 +13,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .config import ROOT, load_settings
 from .crypto import digest, verify
 from .detector import model_ready
+from .explainability import (ExplanationError, configured as explanation_configured,
+                             explain as explain_report, load_local_env)
 from .service import Service
 
 FRONTEND_DIST = ROOT.parent / 'frontend' / 'dist'
@@ -46,6 +48,7 @@ class BodyLimit:
 
 
 def create_app(runtime=None, settings=None, detector=None):
+    load_local_env()
     settings = settings or load_settings()
     service = Service(Path(runtime or ROOT / 'runtime'), settings, detector)
     app = FastAPI(title='FrameSeal', docs_url=None, redoc_url=None)
@@ -124,6 +127,7 @@ def create_app(runtime=None, settings=None, detector=None):
         ready, message = model_ready()
         return {'model_ready': ready, 'model_status': message, 'thresholds': 'Provisional / experimental',
                 'dataset_evaluation': 'Not performed; supply legally obtained labeled videos',
+                'explanation_available': explanation_configured(),
                 'max_upload_mb': settings.max_upload_mb,
                 'max_duration_seconds': settings.max_duration_seconds,
                 'signing_key_id': service.signer.key_id}
@@ -173,6 +177,17 @@ def create_app(runtime=None, settings=None, detector=None):
     def report(identifier: str, request: Request):
         report, envelope = service.record(identifier, owner(request))
         return {'report': report, 'envelope': envelope}
+
+    @app.post('/api/reports/{identifier}/explanation')
+    async def explanation(identifier: str, request: Request):
+        report, _ = service.record(identifier, owner(request))
+        if not explanation_configured():
+            raise HTTPException(503, 'Add your AI provider API key to the root .env file or backend environment')
+        try:
+            content = await run_in_threadpool(explain_report, report)
+        except ExplanationError as exc:
+            raise HTTPException(502, str(exc)) from exc
+        return {'explanation': content, 'type': 'narrative_summary'}
 
     @app.post('/api/reports/{identifier}/share')
     def share(identifier: str, request: Request):

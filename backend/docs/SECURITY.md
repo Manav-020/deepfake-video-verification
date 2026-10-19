@@ -19,3 +19,7 @@ Uploads receive random server-generated names and remain under `backend/runtime/
 Sharing is private by default. Backend routes require report ownership for private operations. Share creation checks the stored signature, original-file hash, detector availability, and signed low-risk policy. Recipient routes recheck active share state and file integrity. Revocation blocks future access but cannot recall downloads already made.
 
 Localhost uses HTTP without Secure cookies. Do not expose the app publicly without authentication, HTTPS, resource isolation, quotas, retention controls, and a fresh security review. No independent penetration test or cryptographic audit is claimed.
+
+## Optional Ollama explanation
+
+The optional explanation endpoint reads `OLLAMA_API_KEY` from the ignored root `.env` file or backend process environment; process environment values take precedence. The key is sent only from the backend to `https://ollama.com/api/chat`; it is never returned to the browser or written to application logs. The request includes report metrics and assessment text, but not video bytes, frames, or the signed report. This sends those metrics to Ollama Cloud for processing. The generated narrative is not detector evidence, feature attribution, or an authenticity check.

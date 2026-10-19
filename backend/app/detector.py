@@ -1,5 +1,6 @@
 """Real DFDC facial-forgery screening. No placeholder inference."""
 import hashlib
+import base64
 import time
 from pathlib import Path
 import cv2
@@ -44,6 +45,36 @@ def aggregate(scores, covered_frames, requested_frames, rejected, settings):
     return 'Inconclusive', score, 'Insufficient coverage/face quality or intermediate model score'
 
 
+def _frame_preview(bgr, frame_result):
+    """Encode the exact decoded sample with detector boxes; never part of signed report."""
+    height, width = bgr.shape[:2]
+    scale = min(1.0, 640 / width)
+    image = cv2.resize(bgr, (round(width * scale), round(height * scale)),
+                       interpolation=cv2.INTER_AREA) if scale < 1 else bgr.copy()
+    for index, face in enumerate(frame_result['faces']):
+        x1, y1, x2, y2 = [round(value * scale) for value in face['box']]
+        color = (70, 224, 66) if face.get('model_score') is not None else (68, 180, 255)
+        label = (f"Face {index + 1}: {face['model_score']:.3f}"
+                 if face.get('model_score') is not None else f'Face {index + 1}: excluded')
+        cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+        (text_width, text_height), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.48, 1)
+        label_x = min(max(0, x1), max(0, image.shape[1] - text_width - 8))
+        label_y = max(text_height + baseline + 4, y1)
+        cv2.rectangle(image, (label_x, label_y - text_height - baseline - 4),
+                      (label_x + text_width + 8, label_y + baseline), color, -1)
+        cv2.putText(image, label, (label_x + 4, label_y - 2), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.48, (16, 37, 29), 1, cv2.LINE_AA)
+    ok, encoded = cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 76])
+    if not ok:
+        return None
+    return {
+        'frame': frame_result['frame'],
+        'timestamp_seconds': frame_result['timestamp_seconds'],
+        'faces': frame_result['faces'],
+        'image': 'data:image/jpeg;base64,' + base64.b64encode(encoded).decode('ascii'),
+    }
+
+
 def analyze(path: Path, settings: Settings):
     cap = cv2.VideoCapture(str(path))
     try:
@@ -77,6 +108,7 @@ def analyze(path: Path, settings: Settings):
         mean = torch.tensor([0.485, 0.456, 0.406])[:, None, None]
         std = torch.tensor([0.229, 0.224, 0.225])[:, None, None]
         scores, covered, rejected = [], 0, 0
+        previews = []
         indices = np.unique(np.linspace(0, frames - 1, min(settings.sample_frames, frames), dtype=int))
         started = time.monotonic()
         with torch.inference_mode():
@@ -98,6 +130,9 @@ def analyze(path: Path, settings: Settings):
                 image = Image.fromarray(rgb).resize((rgb.shape[1] // 2, rgb.shape[0] // 2))
                 boxes, confidences = faces.detect(image)
                 if boxes is None:
+                    preview = _frame_preview(bgr, item)
+                    if preview:
+                        previews.append(preview)
                     continue
                 frame_scores = []
                 for j, (box, confidence) in enumerate(zip(boxes, confidences)):
@@ -133,10 +168,14 @@ def analyze(path: Path, settings: Settings):
                     scores.append(score)
                 if frame_scores:
                     covered += 1
+                preview = _frame_preview(bgr, item)
+                if preview:
+                    previews.append(preview)
         assessment, score, reason = aggregate(scores, covered, len(indices), rejected, settings)
         result.update(assessment=assessment, score=score, reason=reason, detector_available=True)
         result['coverage'].update(analyzed_frames=covered, analyzed_faces=len(scores),
                                   rejected_faces=rejected, requested_frames=len(indices))
+        result['previews'] = previews
         return result
     finally:
         cap.release()

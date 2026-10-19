@@ -18,6 +18,7 @@
 2. The client uploads a video to `/api/analyze`. The backend enforces limits and writes original bytes to a random path in `backend/runtime/videos/`.
 3. The service hashes the original bytes, runs detection, checks the bytes again, builds the versioned report, signs its canonical payload, and persists the envelope in SQLite.
 4. The React client displays the AI assessment and coverage separately from the exact-file digest. Failed or unavailable inference stays inconclusive.
+5. The analysis response includes small annotated JPEGs of the exact sampled frames. These previews are returned to the browser but are not stored or included in the signed report. When `OLLAMA_API_KEY` is configured, the owner can also request an optional AI narrative from report metrics; the backend does not send video bytes or frames to that service. The narrative is not model feature attribution.
 
 ## Sharing and verification
 
