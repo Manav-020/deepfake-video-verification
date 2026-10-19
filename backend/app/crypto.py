@@ -28,12 +28,20 @@ class Signer:
         directory.mkdir(parents=True, exist_ok=True)
         if os.name == 'nt':
             # Limit the private key directory to this Windows account and SYSTEM.
-            result = subprocess.run(['whoami', '/user', '/fo', 'csv', '/nh'],
-                                    capture_output=True, text=True, check=True)
-            sid = next(csv.reader(result.stdout.strip().splitlines()))[1]
-            subprocess.run(['icacls', str(directory), '/inheritance:r', '/grant:r',
-                            f'*{sid}:(OI)(CI)F', '*S-1-5-18:(OI)(CI)F'],
-                           capture_output=True, check=True)
+            try:
+                result = subprocess.run(['whoami', '/user', '/fo', 'csv', '/nh'],
+                                         capture_output=True, text=True, check=True)
+                sid = next(csv.reader(result.stdout.strip().splitlines()))[1]
+                subprocess.run(['icacls', str(directory), '/inheritance:r', '/grant:r',
+                                f'*{sid}:(OI)(CI)F', '*S-1-5-18:(OI)(CI)F'],
+                               capture_output=True, check=True)
+            except (OSError, subprocess.CalledProcessError, IndexError) as exc:
+                # Continuing could silently expose or replace a signing key whose ACL
+                # cannot be verified. Fail with a clear repair path instead.
+                raise PermissionError(
+                    f'Cannot secure signing-key directory {directory}. Repair its '
+                    'Windows ACLs (take ownership, then grant this account and SYSTEM '
+                    'access) before starting FrameSeal.') from exc
         else:
             directory.chmod(0o700)
         keypath = directory / 'signing.key'

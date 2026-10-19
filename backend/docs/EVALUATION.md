@@ -2,7 +2,7 @@
 
 ## Current state
 
-No labeled video dataset is included, and this checkout has no measured detector precision, recall, F1, confusion matrix, false-positive/negative rate, ROC-AUC, calibration, or generalization results. The current `.venv` also lacks Torch and `models/model.pt` is absent, so real-model inference has not been run in this checkout; complete the documented setup first. Existing tests validate software behavior and metric arithmetic only. Do not present integration smoke scores as detection performance.
+No labeled video dataset is included, and this checkout has no measured detector precision, recall, F1, confusion matrix, false-positive/negative rate, ROC-AUC, calibration, or generalization results. The current `backend/.venv` lacks Torch and `backend/models/model.pt` is absent, so real-model inference has not been run in this checkout. Existing tests validate software behavior and metric arithmetic only. Do not present integration smoke scores as detection performance.
 
 The selected detector is a CPU TorchScript export of EfficientNet-B7 Noisy Student fine-tuned for the Deepfake Detection Challenge. The pinned model repository is `tomas-gajarsky/facetorch-deepfake-efficientnet-b7`, revision `4acc494f37eb63d7457166eff2acb45c5b04b9a6`; the required `models/model.pt` SHA-256 is `e36197ae83fa7c050e8ceba267a1f028f2d74d8ad805bf5d5037a26e8ca96c13`. The model was sourced from Selim Seferbekov's DFDC solution, upstream revision `89c6290490bac96b29193a4061b3db9dd3933e36`. The export's upstream provenance/equality statement is not a new independent audit by this project. See `app/model_spec.py` and `scripts/download_model.py` for the enforced identifiers and checksum.
 
