@@ -91,6 +91,7 @@ export default function App() {
   const [reports, setReports] = useState([]);
   const [result, setResult] = useState(null);
   const [shareLinks, setShareLinks] = useState({});
+  const [selectedVideo, setSelectedVideo] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -123,6 +124,7 @@ export default function App() {
       const body = new FormData(); body.append('video', video);
       const data = await request('/api/analyze', { method: 'POST', headers: { 'x-csrf-token': csrf }, body });
       setResult(data); setVerification(''); await refreshReports();
+      setSelectedVideo('');
       form.reset();
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
@@ -180,7 +182,7 @@ export default function App() {
         {message && <p className="notice success">{message}</p>}
 
         <section className="card upload-card"><div className="section-title"><div><p className="eyebrow">01 / SCREEN</p><h2>Analyze a video</h2></div><span className="step">PRIVATE BY DEFAULT</span></div>
-          <form onSubmit={analyze}><label className="file-drop"><span className="file-icon">↑</span><strong>Select a video</strong><small>Original file bytes are retained for hashing and verification.</small><input name="video" type="file" accept="video/*,.mp4,.mov,.avi" required /></label><button className="button primary full" disabled={busy || !csrf}>{busy ? 'Working…' : 'Analyze video'}</button></form>
+          <form onSubmit={analyze}><label className="file-drop"><span className="file-icon">↑</span><strong>{selectedVideo || 'Select a video'}</strong><small>{selectedVideo ? 'Video selected. Click “Analyze video” below to begin.' : 'Choose a file, then click Analyze video below.'}</small><input name="video" type="file" accept="video/*,.mp4,.mov,.avi" required onChange={(event) => { setSelectedVideo(event.target.files[0]?.name || ''); setError(''); }} /></label><button className="button primary full" disabled={busy || !csrf}>{busy ? 'Analyzing video…' : !csrf ? 'Connecting to backend…' : 'Analyze video'}</button></form>
         </section>
 
         {result && <Assessment result={result} onShare={share} onRevoke={revoke} onDownload={downloadReport} />}

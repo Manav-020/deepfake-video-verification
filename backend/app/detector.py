@@ -9,12 +9,19 @@ from .config import ROOT, Settings
 from .model_spec import CHECKSUM
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open('rb') as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def model_ready():
     path = ROOT / 'models/model.pt'
     if not path.is_file():
         return False, 'Detector unavailable: run scripts/download_model.py'
-    with path.open('rb') as f:
-        checksum = hashlib.file_digest(f, 'sha256').hexdigest()
+    checksum = _sha256_file(path)
     if checksum == CHECKSUM:
         from ._vendor.face_weights import HASHES
         for name, expected in HASHES.items():
