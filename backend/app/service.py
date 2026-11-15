@@ -50,27 +50,28 @@ class Service:
     def db(self):
         return sqlite3.connect(self.root / 'records.sqlite3', timeout=10)
 
-    def finish(self, identifier, owner, path):
+    def finish(self, identifier, owner, path, settings=None):
+        settings = settings or self.settings
         original = path.read_bytes()
         video_hash = digest(original)
-        result = self.detector(path, self.settings)
+        result = self.detector(path, settings)
         previews = result.get('previews', [])
         fingerprint = result.get('perceptual_fingerprint')
         if not fingerprint:
             from .fingerprint import compute_video_fingerprint
-            fingerprint = compute_video_fingerprint(path, self.settings.sample_frames, self.settings.max_pixels)
+            fingerprint = compute_video_fingerprint(path, settings.sample_frames, settings.max_pixels)
         if digest(path.read_bytes()) != video_hash:
             raise ValueError('File changed during analysis; report refused')
         assessment = result['assessment']
         coverage = result.get('coverage', {})
-        requested = coverage.get('requested_frames', self.settings.sample_frames)
+        requested = coverage.get('requested_frames', settings.sample_frames)
         covered = coverage.get('analyzed_frames', 0)
         allowed = (assessment == 'Low detected manipulation risk'
                    and result.get('detector_available') is True
                    and result.get('score') is not None
-                   and 0 <= result['score'] <= self.settings.low_threshold
-                   and covered >= self.settings.min_analyzed_frames
-                   and requested > 0 and covered / requested >= self.settings.min_coverage
+                   and 0 <= result['score'] <= settings.low_threshold
+                   and covered >= settings.min_analyzed_frames
+                   and requested > 0 and covered / requested >= settings.min_coverage
                    and coverage.get('analyzed_faces', 0) >= covered
                    and coverage.get('rejected_faces', 0) == 0)
         report = {'report_id': identifier, 'schema_version': 1,
@@ -78,7 +79,7 @@ class Service:
                             'perceptual_fingerprint': fingerprint},
                   'analysis': {k: v for k, v in result.items() if k not in ('coverage', 'previews', 'perceptual_fingerprint')},
                   'model': metadata(), 'coverage': result.get('coverage', {}),
-                  'thresholds': {**self.settings.dict(), 'validation': 'provisional / unvalidated'},
+                  'thresholds': {**settings.dict(), 'validation': 'provisional / unvalidated'},
                   'aggregation': 'Maximum model score across ALL quality-eligible detected faces and sampled frames; any rejected face blocks low risk; no identity tracking',
                   'analyzed_at': datetime.now(timezone.utc).isoformat(),
                   'signing_key_id': self.signer.key_id,

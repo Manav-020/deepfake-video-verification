@@ -47,11 +47,59 @@ class BodyLimit:
         await self.app(scope, bounded_receive, send)
 
 
+def get_web_preview_path(video_path: Path) -> Path:
+    """Return an H.264 video path for seamless browser playback.
+    If original is a non-web codec (such as mpeg4/FMP4), creates a fast cached .web.mp4.
+    """
+    web_cached = video_path.with_suffix('.web.mp4')
+    if web_cached.is_file() and web_cached.stat().st_size > 0:
+        return web_cached
+
+    import shutil, subprocess
+    ffprobe = shutil.which('ffprobe')
+    ffmpeg = shutil.which('ffmpeg')
+    if not ffmpeg:
+        return video_path
+
+    is_h264 = False
+    if ffprobe:
+        try:
+            res = subprocess.run(
+                [ffprobe, '-v', 'error', '-show_entries', 'stream=codec_name',
+                 '-of', 'default=noprint_wrappers=1:nokey=1', str(video_path)],
+                capture_output=True, text=True, timeout=5
+            )
+            codec = res.stdout.strip().lower()
+            if 'h264' in codec or 'avc' in codec:
+                is_h264 = True
+        except Exception:
+            pass
+
+    if is_h264:
+        return video_path
+
+    try:
+        cmd = [
+            ffmpeg, '-y', '-i', str(video_path),
+            '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+            '-preset', 'ultrafast', '-crf', '23',
+            '-movflags', '+faststart',
+            str(web_cached)
+        ]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=20)
+        if web_cached.is_file() and web_cached.stat().st_size > 0:
+            return web_cached
+    except Exception:
+        pass
+
+    return video_path
+
+
 def create_app(runtime=None, settings=None, detector=None):
     load_local_env()
     settings = settings or load_settings()
     service = Service(Path(runtime or ROOT / 'runtime'), settings, detector)
-    app = FastAPI(title='FrameSeal', docs_url=None, redoc_url=None)
+    app = FastAPI(title='DeepFake Detection System', docs_url=None, redoc_url=None)
     app.state.service = service
     app.add_middleware(BodyLimit, limit=settings.max_upload_mb * 1024 * 1024 + 1024 * 1024)
     hosts = ['127.0.0.1', 'localhost', '[::1]']
@@ -146,8 +194,9 @@ def create_app(runtime=None, settings=None, detector=None):
         return bytes(data)
 
     @app.post('/api/analyze')
-    async def analyze(request: Request, video: UploadFile = File(...)):
+    async def analyze(request: Request, video: UploadFile = File(...), max_frames: int = Form(12)):
         identity = owner(request)
+        max_frames = max(1, min(64, max_frames))
         if not service.lock.acquire(blocking=False):
             raise HTTPException(429, 'Analysis already running; retry when it finishes')
         path = None
@@ -158,7 +207,9 @@ def create_app(runtime=None, settings=None, detector=None):
             path = service.root / 'videos' / (identifier + '.bin')
             with path.open('xb') as f:
                 f.write(data)
-            result = await run_in_threadpool(service.finish, identifier, identity, path)
+            req_settings = settings if max_frames == settings.sample_frames else \
+                settings.__class__(**{**settings.dict(), 'sample_frames': max_frames})
+            result = await run_in_threadpool(service.finish, identifier, identity, path, req_settings)
             committed = True
             return result
         finally:
@@ -177,6 +228,27 @@ def create_app(runtime=None, settings=None, detector=None):
     def report(identifier: str, request: Request):
         report, envelope = service.record(identifier, owner(request))
         return {'report': report, 'envelope': envelope}
+
+    @app.get('/api/reports/{identifier}/video')
+    def report_video(identifier: str, request: Request, download: bool = False):
+        service.record(identifier, owner(request))
+        original_path = service.root / 'videos' / (identifier + '.bin')
+        if not original_path.is_file():
+            raise HTTPException(404, 'Video file not found')
+        if download:
+            return FileResponse(
+                original_path,
+                media_type='video/mp4',
+                filename='analyzed-video.mp4',
+                content_disposition_type='attachment'
+            )
+        preview_path = get_web_preview_path(original_path)
+        return FileResponse(
+            preview_path,
+            media_type='video/mp4',
+            filename='analyzed-video.mp4',
+            content_disposition_type='inline'
+        )
 
     @app.post('/api/reports/{identifier}/explanation')
     async def explanation(identifier: str, request: Request):
@@ -210,11 +282,25 @@ def create_app(runtime=None, settings=None, detector=None):
         return FileResponse(index)
 
     @app.get('/s/{token}/video')
-    def shared_video(token: str):
-        _, _, data = service.shared(token)
-        # Fixed generic type + nosniff prevents uploaded HTML being executed.
-        return Response(data, media_type='video/mp4', headers={
-            'Content-Disposition': 'inline; filename="analyzed-video.mp4"', 'Accept-Ranges': 'none'})
+    def shared_video(token: str, download: bool = False):
+        report, _, _ = service.shared(token)
+        original_path = service.root / 'videos' / (report['report_id'] + '.bin')
+        if not original_path.is_file():
+            raise HTTPException(404, 'Video file not found')
+        if download:
+            return FileResponse(
+                original_path,
+                media_type='video/mp4',
+                filename='analyzed-video.mp4',
+                content_disposition_type='attachment'
+            )
+        preview_path = get_web_preview_path(original_path)
+        return FileResponse(
+            preview_path,
+            media_type='video/mp4',
+            filename='analyzed-video.mp4',
+            content_disposition_type='inline'
+        )
 
     @app.get('/s/{token}/report')
     def shared_report(token: str):
