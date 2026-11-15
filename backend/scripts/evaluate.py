@@ -41,7 +41,7 @@ def load_manifest(path):
 
 
 def metrics(records):
-    from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score
+    from sklearn.metrics import precision_score, recall_score, f1_score, confusion_matrix, roc_auc_score, accuracy_score
     decided = [r for r in records if r['assessment'] != 'Inconclusive']
     truth = [int(r['label'] == 'fake') for r in decided]
     pred = [int(r['assessment'] == 'Suspicious') for r in decided]
@@ -51,6 +51,7 @@ def metrics(records):
             'inconclusive_count': len(records) - len(decided),
             'inconclusive_rate': (len(records) - len(decided)) / len(records) if records else None,
             'inconclusive_by_label': {label: sum(r['assessment'] == 'Inconclusive' for r in records if r['label'] == label) for label in ('real', 'fake')},
+            'accuracy': float(accuracy_score(truth, pred)) if decided else None,
             'precision': float(precision_score(truth, pred, zero_division=0)) if decided else None,
             'recall': float(recall_score(truth, pred, zero_division=0)) if decided else None,
             'f1': float(f1_score(truth, pred, zero_division=0)) if decided else None,
