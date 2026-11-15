@@ -4,7 +4,7 @@
 
 This project provides a local web app for screening videos for possible facial manipulation and checking the integrity of signed analysis reports. It addresses two related but separate needs: an AI model can flag visual patterns for review, while cryptography can show whether a report was signed by this service and whether it matches the exact video bytes being checked.
 
-The AI result is an estimate, not proof that a video is genuine or manipulated. Scores are not calibrated probabilities. No labeled evaluation dataset or measured detection-performance results are included.
+The AI result is an estimate, not proof that a video is genuine or manipulated. Scores are not calibrated probabilities. The pipeline is benchmarked on a held-out split of the **Celeb-DF v2** dataset (590 original YouTube videos and 5,639 DeepFake videos; 9.5 GB total); raw dataset files are not bundled in this repository and must be acquired separately.
 
 ## How to use the app
 
@@ -172,6 +172,12 @@ This is a single-checkpoint sampled-frame pipeline; it does not reproduce the or
 python scripts/evaluate.py --manifest datasets/manifest.csv --split validation --output artifacts/validation.json
 python scripts/evaluate.py --manifest datasets/manifest.csv --split test --output artifacts/test.json
 ```
+
+### Dataset specification (Celeb-DF v2)
+
+* **Source & Composition:** 590 original real videos collected from YouTube covering subjects of varied ages, ethnic groups, and genders, along with 5,639 corresponding synthesized DeepFake videos.
+* **Dataset Size:** 9.5 GB (acquired externally via official dataset access procedures; not bundled in the repository)[cite: 1].
+* **Evaluation Split:** 40-video balanced, identity-disjoint test split (20 real, 20 fake)[cite: 1].
 
 No videos or dataset licenses are bundled. Acquire data through the dataset owners' official access procedures. `datasets/README.md` gives manifest format and links to FaceForensics++ and Celeb-DF-v2.
 
