@@ -5,7 +5,7 @@ import re
 import secrets
 from pathlib import Path
 from urllib.parse import urlparse
-from fastapi import FastAPI, Request, UploadFile, File, HTTPException
+from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
@@ -232,5 +232,36 @@ def create_app(runtime=None, settings=None, detector=None):
             return verify(envelope, video_bytes, service.signer.registry)
         except (ValueError, TypeError, KeyError, RecursionError) as exc:
             raise HTTPException(400, 'Malformed or unsupported signed report') from exc
+
+    @app.post('/api/demo/recompress')
+    async def demo_recompress(
+        request: Request,
+        video: UploadFile = File(None),
+        report_id: str = Form(None),
+        crf: int = Form(32)
+    ):
+        identity = owner(request)
+        if video is not None:
+            raw_bytes = await read_upload(video, settings.max_upload_mb * 1024 * 1024)
+        elif report_id:
+            service.record(report_id, identity)
+            video_file = service.root / 'videos' / (report_id + '.bin')
+            if not video_file.is_file():
+                raise HTTPException(404, 'Original video file not found')
+            raw_bytes = video_file.read_bytes()
+        else:
+            raise HTTPException(400, 'Either video file or report_id must be provided')
+
+        from .fingerprint import recompress_video
+        try:
+            recompressed = await run_in_threadpool(recompress_video, raw_bytes, crf=crf)
+        except Exception as exc:
+            raise HTTPException(500, f'Recompression failed: {exc}') from exc
+
+        return Response(
+            recompressed,
+            media_type='video/mp4',
+            headers={'Content-Disposition': 'attachment; filename="recompressed-video.mp4"'}
+        )
 
     return app

@@ -46,7 +46,12 @@ In development, the Vite server on port `5173` proxies API requests to FastAPI o
 - **Detection:** MTCNN face detection and a pinned EfficientNet-B7 TorchScript checkpoint, run on CPU. The pipeline samples up to 12 frames by default and scores eligible detected faces.
 - **Aggregation:** the highest eligible face score contributes to the video result. Default provisional thresholds are `0.20` for low detected risk and `0.80` for suspicious; insufficient frame coverage or rejected faces can leave the result inconclusive. Settings can be adjusted in `backend/config.json`.
 - **Limits:** defaults allow videos up to 100 MB and 120 seconds. The backend also limits decoded frame dimensions, concurrent analysis, and processing time.
-- **Reports:** versioned JSON envelopes contain a canonical signed report, including the SHA-256 digest and byte length of the original video.
+- **Reports:** versioned JSON envelopes contain a canonical signed report, including the SHA-256 digest, byte length, and a 64-bit DCT perceptual fingerprint (pHash across sampled frames).
+- **Recompression-robust content binding:** verification outputs 3 distinct tiers:
+  1. *Exact match:* identical file bytes (SHA-256 verified) and valid signature.
+  2. *Same content, re-encoded:* SHA-256 differs (due to compression/transcoding), but perceptual similarity $\ge 82\%$ and valid signature.
+  3. *Content altered / different:* perceptual similarity below threshold or untrusted signature.
+- **Social media readiness guardrail:** flags whether a video is safe for distribution. Suspicious, inconclusive, or altered content remains blocked even after recompression.
 - **Explanation:** optional AI text summary of assessment and coverage metrics. It does not inspect video frames or provide feature attribution.
 
 ### HTTP API
@@ -57,13 +62,14 @@ Mutating private API calls require the browser session cookie and `x-csrf-token`
 | --- | --- |
 | `GET /api/session` | Establish a browser session and return a CSRF token. |
 | `GET /api/status` | Return model availability, configured limits, and explanation availability. |
-| `POST /api/analyze` | Analyze multipart field `video`; returns the report, signed envelope, and annotated frame previews. |
+| `POST /api/analyze` | Analyze multipart field `video`; returns the report, signed envelope, annotated frame previews, and perceptual fingerprint. |
 | `GET /api/reports` | List reports owned by the current browser session. |
 | `GET /api/reports/{identifier}` | Retrieve an owned report and its signed envelope. |
 | `POST /api/reports/{identifier}/explanation` | Request an optional AI narrative for an owned report. |
 | `POST /api/reports/{identifier}/share` | Create an eligible share link for an owned report. |
 | `POST /api/reports/{identifier}/revoke` | Revoke active share links for an owned report. |
-| `POST /api/verify` | Verify multipart fields `video` and `report`; returns signature and hash outcomes separately. |
+| `POST /api/verify` | Verify multipart fields `video` and `report`; returns 3-tier outcome, perceptual similarity score, and social media readiness. |
+| `POST /api/demo/recompress` | Demo tool: recompress video with H.264 (simulating social media upload) to test perceptual binding resilience. |
 | `GET /s/{token}` | Open an active recipient share page. |
 | `GET /s/{token}/video` | Retrieve the video through an active share. |
 | `GET /s/{token}/report` | Retrieve the signed report through an active share. |
@@ -130,4 +136,10 @@ The model setting is optional. Restart the backend after editing `.env`; `.env` 
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
+```
+
+To run the recompression-robust verification demo from CLI:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\demo_recompression.py
 ```

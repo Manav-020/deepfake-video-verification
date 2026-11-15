@@ -12,6 +12,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives import serialization
 from cryptography.exceptions import InvalidSignature
+from .fingerprint import compute_video_fingerprint, compare_fingerprints
 
 
 def digest(data: bytes) -> str:
@@ -125,7 +126,95 @@ def verify(envelope: dict, video: bytes, registry: dict):
                 valid, status = True, 'Valid signature from a trusted service key'
             except (InvalidSignature, ValueError, TypeError):
                 status = 'Invalid signature'
-    return {'signature_valid': valid, 'signature_status': status,
-            'hash_matches': digest(video) == h and len(video) == n,
-            'signed_ai_assessment': assessment if valid else None,
-            'claimed_ai_assessment': assessment, 'report_id': report['report_id']}
+
+    # Check exact byte hash (SHA-256)
+    exact_hash_match = (digest(video) == h and len(video) == n)
+
+    # Recompression-robust content binding (Perceptual Fingerprint)
+    stored_fingerprint = report['video'].get('perceptual_fingerprint')
+    fingerprint_similarity = 1.0 if exact_hash_match else 0.0
+    content_matches = exact_hash_match
+    fingerprint_details = None
+
+    if exact_hash_match:
+        verification_outcome = 'exact_match' if valid else 'untrusted_or_invalid'
+        outcome_label = 'Exact match'
+        outcome_detail = 'The video bytes match the original SHA-256 digest and byte count exactly.'
+    elif stored_fingerprint and isinstance(stored_fingerprint, dict) and stored_fingerprint.get('frames'):
+        # Video bytes changed (e.g. recompression / transcode). Check perceptual fingerprint.
+        incoming_fingerprint = compute_video_fingerprint(video)
+        cmp_result = compare_fingerprints(stored_fingerprint, incoming_fingerprint)
+        fingerprint_similarity = cmp_result['similarity']
+        content_matches = cmp_result['is_match']
+        fingerprint_details = cmp_result
+
+        if not valid:
+            verification_outcome = 'untrusted_or_invalid'
+            outcome_label = 'Untrusted or invalid signature'
+            outcome_detail = f'Report signature is invalid or untrusted ({status}).'
+        elif content_matches:
+            verification_outcome = 'reencoded_match'
+            outcome_label = 'Same content, re-encoded'
+            outcome_detail = (
+                f'Exact file hash changed (re-encoded or compressed), but visual content matches '
+                f'the signed original ({round(fingerprint_similarity * 100, 1)}% perceptual similarity).'
+            )
+        else:
+            verification_outcome = 'content_altered'
+            outcome_label = 'Content altered / different'
+            outcome_detail = (
+                f'Video content does not match the signed report '
+                f'({round(fingerprint_similarity * 100, 1)}% perceptual similarity is below the threshold).'
+            )
+    else:
+        # Byte mismatch and no perceptual fingerprint stored
+        if not valid:
+            verification_outcome = 'untrusted_or_invalid'
+            outcome_label = 'Untrusted or invalid signature'
+            outcome_detail = f'Report signature is invalid or untrusted ({status}).'
+        else:
+            verification_outcome = 'content_altered'
+            outcome_label = 'Content altered / different'
+            outcome_detail = 'Video bytes differ from signed SHA-256, and no perceptual fingerprint was available.'
+
+    # Social Media Readiness Policy:
+    # A video is ready for social media upload ONLY when:
+    # 1. Signature is valid from a trusted key
+    # 2. Content matches (either exact match or verified re-encoded match)
+    # 3. Signed AI assessment is "Low detected manipulation risk"
+    # Even if compressed or re-encoded, any video that is Suspicious, Inconclusive, or Altered is marked NOT READY TO UPLOAD.
+    if not valid:
+        social_media_ready = False
+        social_media_reason = 'Not ready to upload: Untrusted or invalid digital signature.'
+    elif not content_matches:
+        social_media_ready = False
+        social_media_reason = 'Not ready to upload: Video content does not match the signed report (content altered or wrong video).'
+    elif assessment == 'Suspicious':
+        social_media_ready = False
+        social_media_reason = 'NOT READY TO UPLOAD: AI screening flagged facial manipulation/deepfake artifacts. Do not distribute.'
+    elif assessment == 'Inconclusive':
+        social_media_ready = False
+        social_media_reason = 'Not ready to upload: AI assessment is inconclusive (insufficient face coverage or quality).'
+    elif assessment == 'Low detected manipulation risk':
+        social_media_ready = True
+        social_media_reason = f'Approved for social media upload: Authentic content confirmed ({outcome_label.lower()}) with low manipulation risk.'
+    else:
+        social_media_ready = False
+        social_media_reason = 'Not ready to upload: Unknown assessment state.'
+
+    return {
+        'signature_valid': valid,
+        'signature_status': status,
+        'hash_matches': exact_hash_match,
+        'content_matches': content_matches,
+        'fingerprint_similarity': fingerprint_similarity,
+        'verification_outcome': verification_outcome,
+        'outcome_label': outcome_label,
+        'outcome_detail': outcome_detail,
+        'fingerprint_details': fingerprint_details,
+        'social_media_ready': social_media_ready,
+        'social_media_reason': social_media_reason,
+        'signed_ai_assessment': assessment if valid else None,
+        'claimed_ai_assessment': assessment,
+        'report_id': report['report_id']
+    }

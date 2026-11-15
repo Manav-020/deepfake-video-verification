@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 from .config import ROOT, Settings
 from .model_spec import CHECKSUM
+from .fingerprint import compute_phash
 
 
 def _sha256_file(path: Path) -> str:
@@ -109,6 +110,7 @@ def analyze(path: Path, settings: Settings):
         std = torch.tensor([0.229, 0.224, 0.225])[:, None, None]
         scores, covered, rejected = [], 0, 0
         previews = []
+        fingerprint_frames = []
         indices = np.unique(np.linspace(0, frames - 1, min(settings.sample_frames, frames), dtype=int))
         started = time.monotonic()
         with torch.inference_mode():
@@ -125,6 +127,13 @@ def analyze(path: Path, settings: Settings):
                 if bgr.shape[0] * bgr.shape[1] > settings.max_pixels:
                     raise ValueError('Decoded dimensions exceed limit')
                 result['coverage']['sampled_frames'] += 1
+                frame_phash = compute_phash(bgr)
+                item['phash'] = frame_phash
+                fingerprint_frames.append({
+                    'frame': int(idx),
+                    'timestamp_seconds': round(float(idx / fps), 3),
+                    'phash': frame_phash
+                })
                 rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
                 # Upstream detects at half resolution, with no geometric alignment.
                 image = Image.fromarray(rgb).resize((rgb.shape[1] // 2, rgb.shape[0] // 2))
@@ -176,6 +185,12 @@ def analyze(path: Path, settings: Settings):
         result['coverage'].update(analyzed_frames=covered, analyzed_faces=len(scores),
                                   rejected_faces=rejected, requested_frames=len(indices))
         result['previews'] = previews
+        result['perceptual_fingerprint'] = {
+            'version': 1,
+            'algorithm': 'dct_phash_64',
+            'sample_frames': len(fingerprint_frames),
+            'frames': fingerprint_frames
+        }
         return result
     finally:
         cap.release()

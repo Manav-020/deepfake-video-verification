@@ -55,6 +55,10 @@ class Service:
         video_hash = digest(original)
         result = self.detector(path, self.settings)
         previews = result.get('previews', [])
+        fingerprint = result.get('perceptual_fingerprint')
+        if not fingerprint:
+            from .fingerprint import compute_video_fingerprint
+            fingerprint = compute_video_fingerprint(path, self.settings.sample_frames, self.settings.max_pixels)
         if digest(path.read_bytes()) != video_hash:
             raise ValueError('File changed during analysis; report refused')
         assessment = result['assessment']
@@ -70,8 +74,9 @@ class Service:
                    and coverage.get('analyzed_faces', 0) >= covered
                    and coverage.get('rejected_faces', 0) == 0)
         report = {'report_id': identifier, 'schema_version': 1,
-                  'video': {'sha256': video_hash, 'byte_length': len(original)},
-                  'analysis': {k: v for k, v in result.items() if k not in ('coverage', 'previews')},
+                  'video': {'sha256': video_hash, 'byte_length': len(original),
+                            'perceptual_fingerprint': fingerprint},
+                  'analysis': {k: v for k, v in result.items() if k not in ('coverage', 'previews', 'perceptual_fingerprint')},
                   'model': metadata(), 'coverage': result.get('coverage', {}),
                   'thresholds': {**self.settings.dict(), 'validation': 'provisional / unvalidated'},
                   'aggregation': 'Maximum model score across ALL quality-eligible detected faces and sampled frames; any rejected face blocks low risk; no identity tracking',
