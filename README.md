@@ -143,3 +143,15 @@ To run the recompression-robust verification demo from CLI:
 ```powershell
 .\.venv\Scripts\python.exe scripts\demo_recompression.py
 ```
+
+## References and Citations
+
+If you use or reference the benchmark dataset in your evaluation:
+
+```bibtex
+@inproceedings{Celeb_DF_cvpr20,
+   author = {Yuezun Li and Xin Yang and Pu Sun and Honggang Qi and Siwei Lyu},
+   title = {Celeb-DF: A Large-scale Challenging Dataset for DeepFake Forensics},
+   booktitle= {IEEE Conference on Computer Vision and Patten Recognition (CVPR)},
+   year = {2020}}
+```
